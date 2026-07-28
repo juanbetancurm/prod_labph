@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String            @id @default(cuid())
+  email            String            @unique
+  name             String?
+  passwordHash     String            @map("password_hash")
+  role             String            @default("teacher")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  auditSessions    AuditSession[]
+  uploadedPhotos   Photo[]           @relation("UploadedPhotos")
+  inventoryChanges InventoryChange[]
+
+  @@map("users")
+}
+
+model Location {
+  code              String            @id
+  label             String
+  type              String?
+  mapMeta           Json?             @map("map_meta")
+  itemCountSnapshot Int?              @map("item_count_snapshot")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  inventoryCounts   InventoryCount[]
+  itemPhotos        ItemPhoto[]
+  auditSessions     AuditSession[]
+  inventoryChanges  InventoryChange[]
+
+  @@map("locations")
+}
+
+model Item {
+  id               String            @id
+  category         String
+  source           String
+  section          String
+  name             String
+  reference        String?
+  description      String?
+  utility          String?
+  status           String            @default("active")
+  searchText       String?           @map("search_text")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  inventoryCounts  InventoryCount[]
+  itemPhotos       ItemPhoto[]
+  auditEntries     AuditEntry[]
+  inventoryChanges InventoryChange[]
+
+  @@index([category])
+  @@index([source])
+  @@index([section])
+  @@index([status])
+  @@map("items")
+}
+
+model InventoryCount {
+  id            String   @id @default(cuid())
+  itemId        String   @map("item_id")
+  locationCode  String   @map("location_code")
+  quantityText  String?  @map("quantity_text")
+  quantityValue Decimal? @map("quantity_value") @db.Decimal(12, 3)
+  unit          String?
+  confidence    String   @default("imported_text")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location      Location @relation(fields: [locationCode], references: [code], onDelete: Cascade)
+
+  @@unique([itemId, locationCode])
+  @@index([locationCode])
+  @@map("inventory_counts")
+}
+
+model Photo {
+  id               String       @id @default(cuid())
+  path             String       @unique
+  publicPath       String       @map("public_path")
+  sourceFolder     String?      @map("source_folder")
+  originalFilename String?      @map("original_filename")
+  isUploaded       Boolean      @default(false) @map("is_uploaded")
+  uploadedById     String?      @map("uploaded_by_id")
+  uploadedAt       DateTime?    @map("uploaded_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  uploadedBy       User?        @relation("UploadedPhotos", fields: [uploadedById], references: [id], onDelete: SetNull)
+  itemPhotos       ItemPhoto[]
+  auditEntries     AuditEntry[]
+
+  @@index([sourceFolder])
+  @@map("photos")
+}
+
+model ItemPhoto {
+  id           String   @id @default(cuid())
+  itemId       String   @map("item_id")
+  photoId      String   @map("photo_id")
+  locationCode String   @map("location_code")
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  createdAt    DateTime @default(now()) @map("created_at")
+  item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  photo        Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  location     Location @relation(fields: [locationCode], references: [code], onDelete: Cascade)
+
+  @@unique([itemId, photoId, locationCode])
+  @@index([photoId])
+  @@index([locationCode])
+  @@index([itemId, locationCode, isPrimary])
+  @@map("item_photos")
+}
+
+model AuditSession {
+  id               String            @id @default(cuid())
+  locationCode     String            @map("location_code")
+  status           String            @default("draft")
+  teacherId        String?           @map("teacher_id")
+  notes            String?
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  submittedAt      DateTime?         @map("submitted_at")
+  approvedAt       DateTime?         @map("approved_at")
+  location         Location          @relation(fields: [locationCode], references: [code], onDelete: Restrict)
+  teacher          User?             @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  entries          AuditEntry[]
+  inventoryChanges InventoryChange[]
+
+  @@index([locationCode])
+  @@index([status])
+  @@map("audit_sessions")
+}
+
+model AuditEntry {
+  id                    String       @id @default(cuid())
+  sessionId             String       @map("session_id")
+  itemId                String?      @map("item_id")
+  photoId               String?      @map("photo_id")
+  expectedQuantityText  String?      @map("expected_quantity_text")
+  expectedQuantityValue Decimal?     @map("expected_quantity_value") @db.Decimal(12, 3)
+  observedQuantityText  String?      @map("observed_quantity_text")
+  observedQuantityValue Decimal?     @map("observed_quantity_value") @db.Decimal(12, 3)
+  proposedQuantityText  String?      @map("proposed_quantity_text")
+  proposedQuantityValue Decimal?     @map("proposed_quantity_value") @db.Decimal(12, 3)
+  status                String       @default("uncertain")
+  notes                 String?
+  extraItemName         String?      @map("extra_item_name")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  session               AuditSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  item                  Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  photo                 Photo?       @relation(fields: [photoId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([itemId])
+  @@index([photoId])
+  @@map("audit_entries")
+}
+
+model InventoryChange {
+  id           String        @id @default(cuid())
+  sessionId    String?       @map("session_id")
+  itemId       String?       @map("item_id")
+  locationCode String?       @map("location_code")
+  userId       String?       @map("user_id")
+  changeType   String        @map("change_type")
+  before       Json?
+  after        Json?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  session      AuditSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  item         Item?         @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  location     Location?     @relation(fields: [locationCode], references: [code], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([itemId])
+  @@index([locationCode])
+  @@index([createdAt])
+  @@map("inventory_changes")
+}
+
+
+
