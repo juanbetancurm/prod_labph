@@ -120,7 +120,12 @@ function LocationListCard({ item, isSelected, onSelect }) {
   const photo = firstPhoto(item);
 
   return (
-    <button className={`location-list-card${isSelected ? " is-selected" : ""}`} type="button" onClick={() => onSelect(item.id)}>
+    <button
+      className={`location-list-card${isSelected ? " is-selected" : ""}`}
+      id={`location-item-${item.id}`}
+      type="button"
+      onClick={() => onSelect(item.id)}
+    >
       <span className="location-list-card__name">{item.name}</span>
       <span className="location-list-card__quantity">
         <span>Quantity</span>
@@ -132,7 +137,7 @@ function LocationListCard({ item, isSelected, onSelect }) {
   );
 }
 
-function LocationDetailPanel({ item, selectedRegion, canEdit, onClose, onSave, onSetPrimaryPhoto, onUnlinkPhoto }) {
+function LocationDetailPanel({ item, selectedRegion, canEdit, onClose, onSave, onSetPrimaryPhoto, onUnlinkPhoto, panelRef }) {
   const photo = firstPhoto(item);
   const editableLocationCodes = useMemo(() => editableLocationCodesFor(item, selectedRegion), [item, selectedRegion]);
   const initialEditState = useMemo(() => createEditState(item, selectedRegion), [item, selectedRegion]);
@@ -273,7 +278,7 @@ function LocationDetailPanel({ item, selectedRegion, canEdit, onClose, onSave, o
     const imageSource = photoPreview || photo?.publicPath;
 
     return (
-      <article className="location-detail-panel location-detail-panel--editing" aria-live="polite">
+      <article className="location-detail-panel location-detail-panel--editing" aria-live="polite" ref={panelRef} tabIndex={-1}>
         <form className="location-detail-edit" onSubmit={handleSubmit}>
           <div className="location-detail-panel__header">
             <div>
@@ -402,7 +407,7 @@ function LocationDetailPanel({ item, selectedRegion, canEdit, onClose, onSave, o
   }
 
   return (
-    <article className="location-detail-panel" aria-live="polite">
+    <article className="location-detail-panel" aria-live="polite" ref={panelRef} tabIndex={-1}>
       <div className="location-detail-panel__header">
         <div>
           <p className="eyebrow">Selected object</p>
@@ -447,16 +452,17 @@ function LocationDetailPanel({ item, selectedRegion, canEdit, onClose, onSave, o
 export function LocationPage() {
   const { user } = useAuth();
   const [locations, setLocations] = useState([]);
-  const [selectedRegionId, setSelectedRegionId] = useState("blue-shelf");
+  const [selectedRegionId, setSelectedRegionId] = useState("");
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [photos, setPhotos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const resultsRef = useRef(null);
+  const detailPanelRef = useRef(null);
   const pendingScrollRef = useRef(false);
 
-  const selectedRegion = useMemo(() => mapRegions.find((region) => region.id === selectedRegionId) || mapRegions[0], [selectedRegionId]);
+  const selectedRegion = useMemo(() => mapRegions.find((region) => region.id === selectedRegionId) || null, [selectedRegionId]);
   const selectedItem = useMemo(() => inventoryItems.find((item) => item.id === selectedItemId) || null, [inventoryItems, selectedItemId]);
   const countsByLocation = useMemo(() => new Map(locations.map((location) => [location.code, location.inventoryCount || 0])), [locations]);
 
@@ -505,6 +511,31 @@ export function LocationPage() {
       active = false;
     };
   }, [selectedRegion]);
+
+  useEffect(() => {
+    if (!selectedItemId || !window.matchMedia("(max-width: 899px)").matches) {
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      detailPanelRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [selectedItemId]);
+
+  function selectItem(itemId) {
+    setSelectedItemId(itemId);
+  }
+
+  function closeItemDetail() {
+    const itemId = selectedItemId;
+
+    setSelectedItemId(null);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`location-item-${itemId}`)?.focus({ preventScroll: true });
+    });
+  }
 
   function getRegionCount(region) {
     return region.locationCodes.reduce((total, locationCode) => total + (countsByLocation.get(locationCode) || 0), 0);
@@ -561,26 +592,28 @@ export function LocationPage() {
   }
 
   return (
-    <section className="stack">
-      <div className="page-heading">
-        <p className="eyebrow">Interactive top-view inventory map</p>
-        <h1>Lab locations</h1>
-      </div>
+    <section className="location-page stack">
+      <div className="location-page__heading-row">
+        <div className="page-heading">
+          <p className="eyebrow">Interactive top-view inventory map</p>
+          <h1>Lab locations</h1>
+        </div>
 
-      <div className="toolbar">
-        <label>
-          Map region
-          <select value={selectedRegionId} onChange={(event) => selectRegion(event.target.value)}>
-            {mapRegions.map((region) => (
-              <option key={region.id} value={region.id}>
-                {region.label}
+        <div className="toolbar">
+          <label>
+            Map region
+            <select value={selectedRegionId} onChange={(event) => selectRegion(event.target.value)}>
+              <option value="" disabled>
+                Select a location
               </option>
-            ))}
-          </select>
-        </label>
-        <Link className="button" to="/review">
-          Start photo review
-        </Link>
+              {mapRegions.map((region) => (
+                <option key={region.id} value={region.id}>
+                  {region.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <section className="interactive-map-layout">
@@ -588,7 +621,7 @@ export function LocationPage() {
           <img className="interactive-map-image" src={mapImage} alt="Top-view map of the physics lab" />
           {mapRegions.map((region) => {
             const count = getRegionCount(region);
-            const isSelected = region.id === selectedRegion.id;
+            const isSelected = region.id === selectedRegion?.id;
 
             return (
               <button
@@ -613,7 +646,8 @@ export function LocationPage() {
         </div>
       </section>
 
-      <section className="location-results stack" ref={resultsRef}>
+      {selectedRegion ? (
+        <section className="location-results stack" ref={resultsRef}>
         <section className="panel">
           <div className="section-title">
             <div>
@@ -624,27 +658,37 @@ export function LocationPage() {
               </p>
               <p className="muted">{inventoryItems.length} expected inventory records</p>
             </div>
+            <Link className="button" to="/review">
+              Start photo review
+            </Link>
           </div>
         </section>
 
         <StatusMessage loading={loading} error={error} empty={!inventoryItems.length && "No inventory records are currently assigned to this map region."}>
           <div className={`location-item-browser${selectedItem ? " has-selection" : ""}`}>
-            <div className="location-item-list" aria-label={`${selectedRegion.label} inventory items`}>
+            <div
+              className="location-item-list"
+              aria-label={`${selectedRegion.label} inventory items`}
+              style={{ "--item-count": inventoryItems.length }}
+            >
               {inventoryItems.map((item) => (
-                <LocationListCard item={item} isSelected={item.id === selectedItemId} onSelect={setSelectedItemId} key={item.id} />
+                <div className="location-item-entry" key={item.id}>
+                  <LocationListCard item={item} isSelected={item.id === selectedItemId} onSelect={selectItem} />
+                  {item.id === selectedItemId ? (
+                    <LocationDetailPanel
+                      item={item}
+                      selectedRegion={selectedRegion}
+                      canEdit={Boolean(user)}
+                      onClose={closeItemDetail}
+                      onSave={saveMapItem}
+                      onSetPrimaryPhoto={setPrimaryMapPhoto}
+                      onUnlinkPhoto={unlinkMapPhoto}
+                      panelRef={detailPanelRef}
+                    />
+                  ) : null}
+                </div>
               ))}
             </div>
-            {selectedItem ? (
-              <LocationDetailPanel
-                item={selectedItem}
-                selectedRegion={selectedRegion}
-                canEdit={Boolean(user)}
-                onClose={() => setSelectedItemId(null)}
-                onSave={saveMapItem}
-                onSetPrimaryPhoto={setPrimaryMapPhoto}
-                onUnlinkPhoto={unlinkMapPhoto}
-              />
-            ) : null}
           </div>
         </StatusMessage>
 
@@ -667,7 +711,8 @@ export function LocationPage() {
             <p className="muted">No photos are currently assigned to this map region.</p>
           )}
         </section>
-      </section>
+        </section>
+      ) : null}
     </section>
   );
 }

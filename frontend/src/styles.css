@@ -215,6 +215,49 @@ textarea:focus-visible {
   padding: 48px var(--gutter-width) var(--space-6);
 }
 
+.page-frame.page-frame--locations {
+  padding-bottom: 24px;
+  padding-top: 16px;
+}
+
+.location-page {
+  gap: 12px;
+}
+
+.location-page__heading-row {
+  align-items: end;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+}
+
+.location-page__heading-row .toolbar,
+.location-page__heading-row .toolbar label {
+  width: 100%;
+}
+
+.location-page .eyebrow {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.location-page h1 {
+  font-size: 40px;
+}
+
+.location-page .toolbar label {
+  font-size: 14px;
+  gap: 4px;
+}
+
+@media (max-width: 699px) {
+  .location-page__heading-row {
+    align-items: stretch;
+    gap: 12px;
+    grid-template-columns: 1fr;
+  }
+}
+
 .narrow-page {
   max-width: 620px;
 }
@@ -761,6 +804,18 @@ textarea:focus {
   }
 }
 
+@keyframes inline-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 899px) {
   .topbar {
     align-items: start;
@@ -784,7 +839,7 @@ textarea:focus {
   overflow-x: auto;
   padding-bottom: 4px;
   transform: translateX(-50%);
-  width: min(1160px, calc(100vw - var(--gutter-width) * 2));
+  width: min(780px, calc(100vw - var(--gutter-width) * 2));
 }
 
 .interactive-map-panel {
@@ -793,7 +848,7 @@ textarea:focus {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
-  min-width: 860px;
+  min-width: 720px;
   overflow: hidden;
   position: relative;
 }
@@ -852,13 +907,13 @@ textarea:focus {
   bottom: 4px;
   color: var(--text);
   display: inline-flex;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: var(--font-weight-bold);
   justify-content: center;
   line-height: 1;
-  min-height: 24px;
-  min-width: 24px;
-  padding: 0 6px;
+  min-height: 20px;
+  min-width: 20px;
+  padding: 0 4px;
   position: absolute;
   right: 4px;
 }
@@ -877,6 +932,17 @@ textarea:focus {
   scroll-margin-top: 88px;
 }
 
+@media (max-width: 599px) {
+  .location-results > .panel .section-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .location-results > .panel .section-title .button {
+    width: 100%;
+  }
+}
+
 .location-item-browser {
   display: grid;
   gap: var(--space-3);
@@ -885,7 +951,17 @@ textarea:focus {
 
 .location-item-browser.has-selection {
   align-items: start;
+}
+
+.location-item-browser.has-selection .location-item-list {
+  align-items: start;
+  column-gap: var(--space-3);
   grid-template-columns: minmax(260px, 3fr) minmax(0, 7fr);
+  grid-template-rows: repeat(var(--item-count), auto);
+}
+
+.location-item-entry {
+  display: contents;
 }
 
 .location-item-list {
@@ -997,6 +1073,7 @@ textarea:focus {
 
 .has-selection .location-list-card {
   gap: 10px;
+  grid-column: 1;
   grid-template-columns: minmax(0, 1fr) 86px;
   min-height: 48px;
   padding: 7px 8px 7px 12px;
@@ -1024,11 +1101,14 @@ textarea:focus {
   box-shadow: var(--shadow-md);
   display: grid;
   gap: 12px;
+  grid-column: 2;
+  grid-row: 1 / -1;
   min-height: min(680px, calc(100vh - 140px));
   min-width: 0;
   opacity: 1;
   padding: var(--space-4);
   position: sticky;
+  scroll-margin-top: 16px;
   top: 88px;
   width: 100%;
 }
@@ -1255,6 +1335,12 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .location-item-browser.has-selection .location-item-list {
+    column-gap: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+
   .location-list-card,
   .has-selection .location-list-card {
     grid-template-columns: minmax(0, 1fr) 86px;
@@ -1269,11 +1355,21 @@ textarea:focus {
     display: none;
   }
 
+  .has-selection .location-list-card.is-selected {
+    display: none;
+  }
+
   .location-detail-panel {
+    animation: inline-detail-in 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
     border-width: 1px;
     border-radius: var(--radius);
+    grid-column: 1;
+    grid-row: auto;
     min-height: 0;
+    outline: none;
     padding: 24px 18px;
+    position: static;
+    top: auto;
   }
 
   .location-detail-panel__header {

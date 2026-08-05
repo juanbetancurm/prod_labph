@@ -23,7 +23,8 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<DashboardPage />} />
+        <Route index element={<Navigate to="/locations" replace />} />
+        <Route path="dashboard" element={<DashboardPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="inventory/:id" element={<ItemDetailPage />} />
         <Route path="locations" element={<LocationPage />} />
